@@ -52,15 +52,20 @@ pub struct ProverArtifacts {
     pub proof_wrapper: FriProofWrapper,
     pub job_id: u32,
     pub request_id: u32,
+    pub circuit_id: u32,
+    pub aggregation_round: AggregationRound,
 }
 
 impl ProverArtifacts {
-    pub fn new(block_number: L1BatchNumber, proof_wrapper: FriProofWrapper, job_id: u32, request_id: u32) -> Self {
+    pub fn new(block_number: L1BatchNumber, proof_wrapper: FriProofWrapper, job_id: u32, request_id: u32, circuit_id: u32,
+               aggregation_round: AggregationRound) -> Self {
         Self {
             block_number,
             proof_wrapper,
             job_id,
             request_id,
+            circuit_id,
+            aggregation_round,
         }
     }
 }

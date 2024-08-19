@@ -46,6 +46,7 @@ serde_json = "1.0.107"
 jsonrpsee = { version = "0.23", features = ["server", "client"] }
 hyper = { version = "1.4.1", features = ["server"] }
 tower = "0.4"
+linked-hash-map = "0.5"
 
 [features]
 default = []

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use jsonrpsee::types::{ErrorCode, ErrorObject};
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -9,11 +8,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use tokio::signal;
 use tokio::sync::oneshot;
-use zksync_types::basic_fri_types::CircuitIdRoundTuple;
 use zksync_prover_fri::cpu_prover_utils::JobDistributor;
 use zksync_prover_fri::utils::ProverArtifacts;
 use tokio::sync::RwLock;
 use zksync_prover_fri_types::ProverJob;
+use linked_hash_map::LinkedHashMap;
+use zksync_types::basic_fri_types::{AggregationRound, CircuitIdRoundTuple};
 
 const NO_JOB_AVAILABLE_ERROR_CODE: i32 = 1001;
 const NO_JOB_AVAILABLE_ERROR_MESSAGE: &str = "No job is currently available.";
@@ -34,7 +34,7 @@ struct Server {
     server_addr: SocketAddr,
     max_size: u32,
     request_id: Arc<AtomicUsize>,
-    jobs: Arc<RwLock<HashMap<u32, (ProverJob, Instant)>>>,
+    jobs: Arc<RwLock<LinkedHashMap<(u32, AggregationRound), LinkedHashMap<u32, (ProverJob, Instant)>>>>, // Nested LinkedHashMap
     job_distributor: JobDistributor,
 }
 
@@ -46,7 +46,7 @@ impl Server {
             server_addr,
             max_size,
             request_id: Arc::new(AtomicUsize::new(0)),
-            jobs: Arc::new(RwLock::new(HashMap::new())),
+            jobs: Arc::new(RwLock::new(LinkedHashMap::new())),
             job_distributor}
         )
     }
@@ -64,9 +64,15 @@ impl Server {
                     .map_err(|_e| ErrorObject::from(ErrorCode::InternalError))?;
 
                 if let Some(proof_job) = proof_job_option {
-                    // Insert the job in the hash table
+                    // Insert the job in the linked hash table
+                    let key: (u32, AggregationRound) = (proof_job.circuit_id, proof_job.aggregation_round);
                     let mut jobs = server.jobs.write().await;
-                    jobs.insert(proof_job.job_id, (proof_job.clone(), Instant::now()));
+                    //jobs.insert(proof_job.job_id, (proof_job.clone(), Instant::now()));
+                    // Insert the job in the nested linked hash table
+                    jobs.entry(key)
+                        .or_insert_with(LinkedHashMap::new)
+                        .insert(proof_job.job_id, (proof_job.clone(), Instant::now()));
+
                     println!("Job {} with request id {} inserted.", proof_job.job_id, _req_id);
                     Ok(proof_job)
                 } else {
@@ -85,8 +91,61 @@ impl Server {
             let server = self.clone();
             async move {
                 let proof_artifact: ProverArtifacts = _params.one()?;
+                let key: (u32, AggregationRound) = (proof_artifact.circuit_id, proof_artifact.aggregation_round);
                 let mut jobs = server.jobs.write().await;
-                if let Some((job, started_job_at)) = jobs.remove(&proof_artifact.job_id) {
+
+                if let Some(job_map) = jobs.get_mut(&key) {
+                    if let Some((job, started_job_at)) = job_map.remove(&proof_artifact.job_id) {
+                        println!(
+                            "Received proof artifact for job {} with request id {}.",
+                            job.job_id, proof_artifact.request_id
+                        );
+                        let server_clone = server.clone();
+
+                        // Respond to the client immediately
+                        tokio::spawn(async move {
+                            let job_id = job.job_id.clone();
+                            if JobDistributor::verify_client_proof(proof_artifact.clone(), job).await {
+                                let _ = server_clone
+                                    .job_distributor
+                                    .save_proof_to_db(job_id, proof_artifact, started_job_at)
+                                    .await;
+                            }
+                        });
+
+                        // Clean up the outer map if the inner map is empty
+                        if job_map.is_empty() {
+                            jobs.remove(&key);
+                        }
+
+                        // Respond with success
+                        Ok(())
+                    } else {
+                        println!("There is no current job with job id {}.", proof_artifact.job_id);
+                        let error = ErrorObject::owned(
+                            NO_JOB_REQUEST_ERROR_CODE,
+                            NO_JOB_REQUEST_ERROR_MESSAGE,
+                            Some("Job id = ".to_string() + &proof_artifact.job_id.to_string()),
+                        );
+                        Err(error)
+                    }
+                } else {
+                    println!(
+                        "There is no current job with circuit id {} and aggregation round {:?}.",
+                        proof_artifact.circuit_id, proof_artifact.aggregation_round
+                    );
+                    let error = ErrorObject::owned(
+                        NO_JOB_REQUEST_ERROR_CODE,
+                        NO_JOB_REQUEST_ERROR_MESSAGE,
+                        Some(format!(
+                            "Circuit id = {}, Aggregation round = {:?}",
+                            proof_artifact.circuit_id, proof_artifact.aggregation_round
+                        )),
+                    );
+                    Err(error)
+                }
+
+                /*if let Some((job, started_job_at)) = jobs.remove(&proof_artifact.job_id) {
                     println!("Received proof artifact for job {} with request id {}.", job.job_id, proof_artifact.request_id);
                     let server_clone = server.clone();
 
@@ -107,7 +166,7 @@ impl Server {
                         Some("Job id = ".to_string() + &proof_artifact.job_id.to_string()),
                     );
                     Err(error)
-                }
+                }*/
             }
         })?;
 

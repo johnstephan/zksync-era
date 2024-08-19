@@ -83,6 +83,8 @@ pub async fn fetch_next_circuit(
         input,
         setup_data_key,
         req_id,
+        prover_job.circuit_id.into(),
+        prover_job.aggregation_round,
     ))
 }
 

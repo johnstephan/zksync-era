@@ -97,6 +97,8 @@ pub struct ProverJob {
     pub circuit_wrapper: CircuitWrapper,
     pub setup_data_key: ProverServiceDataKey,
     pub request_id: u32,
+    pub circuit_id: u32,
+    pub aggregation_round: AggregationRound,
 }
 
 impl ProverJob {
@@ -106,6 +108,8 @@ impl ProverJob {
         circuit_wrapper: CircuitWrapper,
         setup_data_key: ProverServiceDataKey,
         request_id: u32,
+        circuit_id: u32,
+        aggregation_round: AggregationRound,
     ) -> Self {
         Self {
             block_number,
@@ -113,6 +117,8 @@ impl ProverJob {
             circuit_wrapper,
             setup_data_key,
             request_id,
+            circuit_id,
+            aggregation_round,
         }
     }
 }
