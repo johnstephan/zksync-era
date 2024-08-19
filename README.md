@@ -50,6 +50,8 @@ curl -O http://34.29.79.81:8000/verification_basic_1_key.json
 ```
 Place these files in the following directory: `zksync-era/prover/vk_setup_data_generator_server_fri/data`.
 
+> **Note**: The file `setup_basic_1_data.bin` is over 13GB in size and will take long to download, but this only needs to happen once. Performing proving jobs later only requires little network bandwidth. If you have constraints on network bandwidth or the amount of downloaded data, see the [advanced instructions](./README_advanced.md) for generating the keys locally.
+
 ## 4. Run the Prover
 Once everything is set up, run the prover with the following command:
 ```bash
