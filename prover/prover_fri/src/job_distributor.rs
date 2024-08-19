@@ -66,8 +66,7 @@ impl Server {
                 if let Some(proof_job) = proof_job_option {
                     // Insert the job in the hash table
                     let mut jobs = server.jobs.write().await;
-                    let started_job_at = Instant::now();
-                    jobs.insert(_req_id, (proof_job.clone(), started_job_at));
+                    jobs.insert(proof_job.job_id, (proof_job.clone(), Instant::now()));
                     println!("Job {} with request id {} inserted.", proof_job.job_id, _req_id);
                     Ok(proof_job)
                 } else {
@@ -87,8 +86,8 @@ impl Server {
             async move {
                 let proof_artifact: ProverArtifacts = _params.one()?;
                 let mut jobs = server.jobs.write().await;
-                if let Some((job, started_job_at)) = jobs.remove(&proof_artifact.request_id) {
-                    println!("Received proof artifact for job {} with request id {}.", job.job_id, job.request_id);
+                if let Some((job, started_job_at)) = jobs.remove(&proof_artifact.job_id) {
+                    println!("Received proof artifact for job {} with request id {}.", job.job_id, proof_artifact.request_id);
                     let server_clone = server.clone();
 
                     // Respond to the client immediately
@@ -101,11 +100,11 @@ impl Server {
                     // Respond with success
                     Ok(())
                 } else {
-                    println!("There is no current job with request id {}.", proof_artifact.request_id);
+                    println!("There is no current job with job id {}.", proof_artifact.job_id);
                     let error = ErrorObject::owned(
                         NO_JOB_REQUEST_ERROR_CODE,
                         NO_JOB_REQUEST_ERROR_MESSAGE,
-                        Some("Request id = ".to_string() + &proof_artifact.request_id.to_string()),
+                        Some("Job id = ".to_string() + &proof_artifact.job_id.to_string()),
                     );
                     Err(error)
                 }

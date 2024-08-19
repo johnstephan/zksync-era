@@ -61,7 +61,7 @@ impl Prover {
         };
 
         println!("Finished proving, took: {:?}", started_at.elapsed());
-        ProverArtifacts::new(job.block_number, proof_wrapper, job.request_id)
+        ProverArtifacts::new(job.block_number, proof_wrapper, job.job_id, job.request_id)
     }
 
     fn prove_recursive_layer(
@@ -88,7 +88,6 @@ impl Prover {
 
         verify_proof(&CircuitWrapper::Recursive(circuit), &proof, &artifact.vk, job_id, request_id);
         FriProofWrapper::Recursive(ZkSyncRecursionLayerProof::from_inner(circuit_id, proof))
-
     }
 
     fn prove_base_layer(
