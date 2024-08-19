@@ -52,4 +52,7 @@ while true; do
     echo "Prover failed. Retrying ..."
   fi
 
+  # Sleep for a short duration before the next attempt
+  sleep 5
+
 done
