@@ -101,7 +101,7 @@ impl Server {
 
                                 println!(
                                     "Job {} with request id {}, circuit id {}, and aggregation round {:?} re-inserted from empty circuit_ids_for_round_to_be_proven.",
-                                    job.job_id, job.req_id, job.circuit_id, job.aggregation_round
+                                    job.job_id, job.request_id, job.circuit_id, job.aggregation_round
                                 );
 
                                 return Ok(job);
@@ -122,7 +122,7 @@ impl Server {
 
                                     println!(
                                         "Job {} with request id {}, circuit id {}, and aggregation round {:?} re-inserted.",
-                                        job.job_id, job.req_id, job.circuit_id, job.aggregation_round
+                                        job.job_id, job.request_id, job.circuit_id, job.aggregation_round
                                     );
 
                                     return Ok(job);
