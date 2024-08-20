@@ -61,7 +61,7 @@ impl Prover {
         };
 
         println!("Finished proving, took: {:?}", started_at.elapsed());
-        ProverArtifacts::new(job.block_number, proof_wrapper, job.job_id, job.request_id, job.circuit_id, job.aggregation_round)
+        ProverArtifacts::new(job.block_number, proof_wrapper, job.job_id, job.request_id)
     }
 
     fn prove_recursive_layer(

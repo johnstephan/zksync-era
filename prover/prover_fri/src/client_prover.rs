@@ -1,7 +1,5 @@
 use clap::Parser;
-use jsonrpsee::core::client::ClientT;
-use jsonrpsee::http_client::HttpClientBuilder;
-use jsonrpsee::rpc_params;
+use jsonrpsee::{rpc_params, http_client::HttpClientBuilder, core::client::ClientT};
 use tokio;
 use zksync_prover_fri::cpu_prover_utils::{Prover, parse_circuit_ids_rounds};
 use zksync_prover_fri_types::ProverJob;

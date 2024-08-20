@@ -1,5 +1,4 @@
 use std::{collections::HashMap, sync::Arc, time::Instant};
-
 use anyhow::Context as _;
 use tokio::task::JoinHandle;
 use zkevm_test_harness::prover_utils::{prove_base_layer_circuit, prove_recursion_layer_circuit};
@@ -24,7 +23,6 @@ use zksync_types::{
     basic_fri_types::CircuitIdRoundTuple, protocol_version::ProtocolSemanticVersion,
 };
 use zksync_vk_setup_data_server_fri::{keystore::Keystore, GoldilocksProverSetupData};
-
 use crate::{
     metrics::{CircuitLabels, Layer, METRICS},
     utils::{
@@ -109,9 +107,7 @@ impl Prover {
                 Self::prove_recursive_layer(job.job_id, recursive_circuit, config, setup_data)
             }
         };
-        //ProverArtifacts::new(job.block_number, proof, job.job_id, 0)
-        ProverArtifacts::new(job.block_number, proof, job.job_id, 0, 0, 0.into())
-
+        ProverArtifacts::new(job.block_number, proof, job.job_id, job.request_id)
     }
 
     fn prove_recursive_layer(
