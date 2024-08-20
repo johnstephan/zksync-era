@@ -77,6 +77,7 @@ impl Server {
                     println!("Job {} with request id {} inserted.", proof_job.job_id, _req_id);
                     Ok(proof_job)
                 } else {
+                    println!("No job with the given circuit id(s) and aggregation round(s) was found in the DB. Attempting to retrieve one locally.");
                     let mut jobs = server.jobs.write().await;
 
                     if circuit_ids_for_round_to_be_proven.is_empty() {
@@ -131,7 +132,7 @@ impl Server {
                     }
 
                     // If no job exists locally either, return an error
-                    println!("No job is available.");
+                    println!("No job with the given circuit id(s) and aggregation round(s) is available locally. Try again later.");
                     let error = ErrorObject::owned(
                         NO_JOB_AVAILABLE_ERROR_CODE,
                         NO_JOB_AVAILABLE_ERROR_MESSAGE,
