@@ -1,12 +1,7 @@
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-    time::Instant,
-};
+use std::{collections::HashMap, net::SocketAddr, sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+}, time::Instant};
 use anyhow::Result;
 use clap::Parser;
 use jsonrpsee::{
@@ -16,11 +11,12 @@ use jsonrpsee::{
 use tokio::{
     signal,
     sync::{oneshot, RwLock},
+    fs::OpenOptions,
+    io::AsyncWriteExt,
 };
 use zksync_prover_fri::{cpu_prover_utils::JobDistributor, utils::ProverArtifacts};
 use zksync_prover_fri_types::ProverJob;
 use zksync_types::basic_fri_types::CircuitIdRoundTuple;
-
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -28,8 +24,6 @@ struct SubmitResultParams {
     username: String,
     proof_artifact: ProverArtifacts,
 }
-use tokio::fs::OpenOptions;
-use tokio::io::AsyncWriteExt;
 
 const NO_JOB_AVAILABLE_ERROR_CODE: i32 = 1001;
 const NO_JOB_AVAILABLE_ERROR_MESSAGE: &str = "No job is currently available.";
@@ -107,7 +101,7 @@ impl Server {
             let server = self.clone();
             async move {
                 // Deserialize the JSON object into the `SubmitResultParams` struct
-                let params: SubmitResultParams = _params.parse()?;
+                let params: SubmitResultParams = _params.one()?;
 
                 // Access the fields
                 let username = params.username;

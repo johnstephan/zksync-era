@@ -70,7 +70,7 @@ Once everything is set up, run the prover with the following command:
 
 ```bash
 chmod +x run_prover.sh
-./run_prover.sh --server-url http://34.29.79.81:3030 --circuit-ids "(1,0),(2,1)"
+./run_prover.sh --server-url http://34.29.79.81:3030 --circuit-ids "(1,0),(2,1)" --username <your_name>
 ```
 
 where server-url is the url of the job distributor, and circuit-ids (x,y) correspond to the Circuits IDs (x) and Rounds

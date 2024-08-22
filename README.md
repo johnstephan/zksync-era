@@ -74,14 +74,12 @@ Once everything is set up, run the prover with the following command:
 ```bash
 cd prover
 chmod +x run_prover.sh
-./run_prover.sh --server-url http://34.29.79.81:3030
+./run_prover.sh --server-url http://34.29.79.81:3030 --username <your_name>
 ```
 
 > **Note**: On Mac, the prover may crash unexpectedly. If it does, the script will automatically relaunch the prover.
 
-**_Important_**: This guide is designed for users new to community proving with Zksync-Era, and enables users to execute
-the most common prover job (Circuit ID 1, Round 0) in Zksync-Era. If you would like to be able to execute more prover
-jobs, please refer to the [Advanced README](./README_advanced.md). If you would like to be able to execute **all**
+**_Important_**: This guide is designed for users new to community proving with Zksync-Era, and enables users to execute the most common prover job (Circuit ID 1, Round 0) in Zksync-Era. If you would like to be able to execute more prover jobs, please refer to the [Advanced README](./README_advanced.md). If you would like to be able to execute **all**
 prover jobs, do the following steps.
 
 First, generate keys for all possible circuits and rounds using the following command:
