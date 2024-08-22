@@ -21,6 +21,13 @@ use zksync_prover_fri::{cpu_prover_utils::JobDistributor, utils::ProverArtifacts
 use zksync_prover_fri_types::ProverJob;
 use zksync_types::basic_fri_types::CircuitIdRoundTuple;
 
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+struct SubmitResultParams {
+    username: String,
+    proof_artifact: ProverArtifacts,
+}
 use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 
@@ -99,8 +106,12 @@ impl Server {
         module.register_async_method("submit_result", move |_params, _, _| {
             let server = self.clone();
             async move {
-                // Decode the client's response to get the username and proof_artifact
-                let (username, proof_artifact): (String, ProverArtifacts) = _params.parse()?;
+                // Deserialize the JSON object into the `SubmitResultParams` struct
+                let params: SubmitResultParams = _params.parse()?;
+
+                // Access the fields
+                let username = params.username;
+                let proof_artifact = params.proof_artifact;
                 let mut jobs = server.jobs.write().await;
                 if let Some((job, started_job_at)) = jobs.remove(&proof_artifact.job_id) {
                     println!(
