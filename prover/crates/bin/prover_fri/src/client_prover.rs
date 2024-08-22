@@ -1,3 +1,4 @@
+use std::time::Instant;
 use anyhow::Context as _;
 use clap::Parser;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
@@ -65,6 +66,10 @@ impl Client {
     }
 
     pub async fn poll_for_job(&self) -> anyhow::Result<()> {
+
+        // Record timestamp
+        let _job_request_timestamp = Instant::now();
+
         // Request a job
         let circuit_ids_json = serde_json::to_value(
             self.client_prover
@@ -77,16 +82,19 @@ impl Client {
             .await;
 
         match response {
+
             Ok(job) => {
                 println!(
                     "Have to execute job {} with request id {}.",
                     job.job_id, job.request_id
                 );
                 let proof_artifact = self.client_prover.prove(job);
-                // Include the username with the proof artifact in the JSON object
+                let _proof_submission_timestamp = Instant::now();
+
+                // Include the different fields in the Json object: username, proof artifact, timestamps, circuit_id, and aggregation_round
                 let result_json = serde_json::json!({
                     "username": self.username,
-                    "proof_artifact": proof_artifact
+                    "proof_artifact": proof_artifact,
                 });
 
                 let submit_response: Result<(), _> = self

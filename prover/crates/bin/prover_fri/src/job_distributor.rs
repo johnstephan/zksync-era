@@ -44,7 +44,7 @@ struct Server {
     server_addr: SocketAddr,
     max_size: u32,
     request_id: Arc<AtomicUsize>,
-    jobs: Arc<RwLock<HashMap<u32, (ProverJob, Instant)>>>,
+    jobs: Arc<RwLock<HashMap<u32, HashMap<u32, (ProverJob, Instant)>>>>,
     job_distributor: JobDistributor,
 }
 
@@ -77,9 +77,10 @@ impl Server {
                     .map_err(|_e| ErrorObject::from(ErrorCode::InternalError))?;
 
                 if let Some(proof_job) = proof_job_option {
-                    // Insert the job in the hash table
+                    // Insert the job into the nested hashmap
                     let mut jobs = server.jobs.write().await;
-                    jobs.insert(proof_job.job_id, (proof_job.clone(), Instant::now()));
+                    let job_entry = jobs.entry(proof_job.job_id).or_insert_with(HashMap::new);
+                    job_entry.insert(_req_id, (proof_job.clone(), Instant::now()));
                     println!(
                         "Job {} with request id {} inserted.",
                         proof_job.job_id, _req_id
@@ -100,46 +101,66 @@ impl Server {
         module.register_async_method("submit_result", move |_params, _, _| {
             let server = self.clone();
             async move {
-                // Deserialize the JSON object into the `SubmitResultParams` struct
-                let params: SubmitResultParams = _params.one()?;
+                // Deserialize the response JSON object into the `SubmitResultParams` struct
+                let response: SubmitResultParams = _params.one()?;
 
                 // Access the fields
-                let username = params.username;
-                let proof_artifact = params.proof_artifact;
+                let username = response.username;
+                let proof_artifact = response.proof_artifact;
+                let job_id = proof_artifact.job_id;
+                let request_id = proof_artifact.request_id;
+
                 let mut jobs = server.jobs.write().await;
-                if let Some((job, started_job_at)) = jobs.remove(&proof_artifact.job_id) {
-                    println!(
-                        "Received from {} the proof artifact for job {} with request id {}.",
-                        username, job.job_id, proof_artifact.request_id
-                    );
-                    let server_clone = server.clone();
+                if let Some(job_map) = jobs.get_mut(&job_id) {
+                    if let Some((job, started_job_at)) = job_map.remove(&request_id) {
+                        println!(
+                            "Received from {} the proof artifact for job {} with request id {}.",
+                            username, job_id, request_id
+                        );
 
-                    // Respond to the client immediately
-                    tokio::spawn(async move {
-                        let job_id = job.job_id.clone();
-                        if JobDistributor::verify_client_proof(proof_artifact.clone(), job).await {
-                            let _ = server_clone
-                                .job_distributor
-                                .save_proof_to_db(job_id, proof_artifact, started_job_at)
-                                .await;
+                        // Make all other client requests obsolete
+                        jobs.remove(&job_id);
 
-                            // Write the username to a local file upon successful verification
-                            if let Err(e) = write_username_to_file(&username).await {
-                                eprintln!("Failed to write username to file: {}", e);
+                        let server_clone = server.clone();
+
+                        // Respond to the client immediately
+                        tokio::spawn(async move {
+                            if JobDistributor::verify_client_proof(proof_artifact.clone(), job).await {
+                                let _ = server_clone
+                                    .job_distributor
+                                    .save_proof_to_db(job_id, proof_artifact, started_job_at)
+                                    .await;
+
+                                // Write the username to a local file upon successful verification
+                                if let Err(e) = write_username_to_file(&username, job_id).await {
+                                    eprintln!("Failed to write username to file: {}", e);
+                                }
                             }
-                        }
-                    });
-                    // Respond with success
-                    Ok(())
+                        });
+
+                        // Respond with success
+                        Ok(())
+                    } else {
+                        println!(
+                            "There is currently no job with request id {} for job id {}.",
+                            request_id, job_id
+                        );
+                        let error = ErrorObject::owned(
+                            NO_JOB_ID_ERROR_CODE,
+                            NO_JOB_ID_ERROR_MESSAGE,
+                            Some("Job id = ".to_string() + &job_id.to_string()),
+                        );
+                        Err(error)
+                    }
                 } else {
                     println!(
-                        "There is currently no job with job id {}.",
-                        proof_artifact.job_id
+                        "This job is obsolete (already been proven), or no job with job id {} exists. Please try again later.",
+                        job_id
                     );
                     let error = ErrorObject::owned(
                         NO_JOB_ID_ERROR_CODE,
                         NO_JOB_ID_ERROR_MESSAGE,
-                        Some("Job id = ".to_string() + &proof_artifact.job_id.to_string()),
+                        Some("Job id = ".to_string() + &job_id.to_string()),
                     );
                     Err(error)
                 }
@@ -176,14 +197,21 @@ impl Server {
     }
 }
 
-async fn write_username_to_file(username: &str) -> Result<()> {
+async fn write_username_to_file(username: &str, job_id: u32) -> Result<()> {
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
         .open("verified_provers.txt")
         .await?;
 
-    file.write_all(format!("{}\n", username).as_bytes()).await?;
+    // Format the data as a comma-separated line
+    let log_entry = format!(
+        "{},{}\n",
+        username,
+        job_id,
+    );
+
+    file.write_all(log_entry.as_bytes()).await?;
     Ok(())
 }
 
