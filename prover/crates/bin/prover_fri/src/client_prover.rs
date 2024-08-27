@@ -91,7 +91,7 @@ impl Client {
                 let proof_artifact = self.client_prover.prove(job);
                 let _proof_submission_timestamp = Instant::now();
 
-                // Include the different fields in the Json object: username, proof artifact, timestamps, circuit_id, and aggregation_round
+                // Include the different fields in the Json object: username, proof artifact
                 let result_json = serde_json::json!({
                     "username": self.username,
                     "proof_artifact": proof_artifact,

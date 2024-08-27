@@ -142,11 +142,12 @@ pub fn verify_proof(
     };
 
     if !is_valid {
-        println!("Failed to verify proof for job: {job_id} circuit_type {circuit_id}");
+        println!("Failed to verify proof for job {job_id} of circuit id {circuit_id}");
     } else {
         println!(
-            "Proof verification for job {} with request id {} succeeded, it took {:?}.",
+            "Proof verification for job {} of circuit id {} with request id {} succeeded, it took {:?}.",
             job_id,
+            circuit_id,
             request_id,
             started_at.elapsed()
         );
@@ -156,12 +157,12 @@ pub fn verify_proof(
 }
 
 pub fn setup_metadata_to_setup_data_key(
-    setup_metadata: &CircuitIdRoundTuple,
+setup_metadata: &CircuitIdRoundTuple,
 ) -> ProverServiceDataKey {
-    ProverServiceDataKey {
-        circuit_id: setup_metadata.circuit_id,
-        round: setup_metadata.aggregation_round.into(),
-    }
+ProverServiceDataKey {
+circuit_id: setup_metadata.circuit_id,
+round: setup_metadata.aggregation_round.into(),
+}
 }
 
 pub fn get_setup_data_key(key: ProverServiceDataKey) -> ProverServiceDataKey {
