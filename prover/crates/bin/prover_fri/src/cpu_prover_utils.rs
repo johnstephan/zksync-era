@@ -202,12 +202,15 @@ impl JobDistributor {
     }
 
     pub async fn verify_client_proof(proof_artifact: ProverArtifacts, job: ProverJob) -> bool {
+        // Modify setup data key of job if it is a Node Aggregation Job, otherwise return same key
+        let setup_data_key = get_setup_data_key(job.setup_data_key);
+
         let is_valid = match (proof_artifact.proof_wrapper.clone(), job.circuit_wrapper) {
             (FriProofWrapper::Base(proof), CircuitWrapper::Base(base_circuit)) => {
-                assert!(base_circuit.numeric_circuit_type() == job.setup_data_key.circuit_id);
+                assert!(base_circuit.numeric_circuit_type() == setup_data_key.circuit_id);
                 // Try to load the base layer verification key
                 let v_k = match Keystore::default()
-                    .load_base_layer_verification_key(get_setup_data_key(job.setup_data_key).circuit_id)
+                    .load_base_layer_verification_key(get_setup_data_key(setup_data_key).circuit_id)
                 {
                     Ok(vk) => vk.into_inner(),
                     Err(_) => return false,
@@ -221,10 +224,10 @@ impl JobDistributor {
                 )
             }
             (FriProofWrapper::Recursive(proof), CircuitWrapper::Recursive(recursive_circuit)) => {
-                assert!(recursive_circuit.numeric_circuit_type() == job.setup_data_key.circuit_id);
+                assert!(recursive_circuit.numeric_circuit_type() == setup_data_key.circuit_id);
                 // Try to load the recursive layer verification key
                 let v_k = match Keystore::default()
-                    .load_recursive_layer_verification_key(get_setup_data_key(job.setup_data_key).circuit_id)
+                    .load_recursive_layer_verification_key(setup_data_key.circuit_id)
                 {
                     Ok(vk) => vk.into_inner(),
                     Err(_) => return false,
