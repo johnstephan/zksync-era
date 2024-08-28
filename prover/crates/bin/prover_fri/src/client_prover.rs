@@ -2,8 +2,12 @@ use anyhow::Context as _;
 use clap::Parser;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use tokio;
+use zksync_config::configs::fri_prover::SetupLoadMode;
 use zksync_core_leftovers::temp_config_store::load_general_config;
-use zksync_prover_fri::cpu_prover_utils::{parse_circuit_ids_rounds, Prover};
+use zksync_prover_fri::{
+    cpu_prover_utils::{parse_circuit_ids_rounds, Prover},
+    utils::ProverArtifacts,
+};
 use zksync_prover_fri_types::ProverJob;
 use zksync_prover_fri_utils::get_all_circuit_id_round_tuples_for;
 
@@ -42,7 +46,9 @@ impl Client {
 
         let general_config =
             load_general_config(Cli::parse().config_path.clone()).context("general config")?;
-        let prover_config = general_config.prover_config.context("fri_prover config")?;
+        let mut prover_config = general_config.prover_config.context("fri_prover config")?;
+        prover_config.setup_load_mode = SetupLoadMode::FromMemory;
+        prover_config.specialized_group_id = 1;
 
         // Determine how to set circuit_ids_for_round_to_be_proven based on the input
         let circuit_ids_for_round_to_be_proven = if circuit_ids_rounds == "all" {
@@ -64,6 +70,20 @@ impl Client {
         })
     }
 
+    fn retry_prove(&self, job: ProverJob) -> ProverArtifacts {
+        loop {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                self.client_prover.prove(job.clone())
+            }));
+            match result {
+                Ok(value) => return value,
+                Err(_) => {
+                    eprintln!("Panic occurred! Retrying...")
+                }
+            }
+        }
+    }
+
     pub async fn poll_for_job(&self) -> anyhow::Result<()> {
         // Request a job
         let circuit_ids_json = serde_json::to_value(
@@ -82,7 +102,7 @@ impl Client {
                     "Have to execute job {} with request id {}.",
                     job.job_id, job.request_id
                 );
-                let proof_artifact = self.client_prover.prove(job);
+                let proof_artifact = self.retry_prove(job);
                 // Include the username with the proof artifact in the JSON object
                 let result_json = serde_json::json!({
                     "username": self.username,
@@ -113,6 +133,8 @@ async fn main() -> anyhow::Result<()> {
     let circuit_ids_rounds = opt.circuit_ids_rounds;
     let username = opt.username;
     let client = Client::new(server_url, max_size, circuit_ids_rounds, username).await?;
-    client.poll_for_job().await?;
+    loop {
+        client.poll_for_job().await?;
+    }
     Ok(())
 }
