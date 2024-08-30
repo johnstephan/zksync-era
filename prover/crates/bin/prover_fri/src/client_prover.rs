@@ -1,10 +1,12 @@
-use std::time::Instant;
 use anyhow::Context as _;
 use clap::Parser;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
 use tokio;
 use zksync_core_leftovers::temp_config_store::load_general_config;
-use zksync_prover_fri::cpu_prover_utils::{parse_circuit_ids_rounds, Prover};
+use zksync_prover_fri::{
+    cpu_prover_utils::{parse_circuit_ids_rounds, Prover},
+    utils::ProverArtifacts,
+};
 use zksync_prover_fri_types::ProverJob;
 use zksync_prover_fri_utils::get_all_circuit_id_round_tuples_for;
 
@@ -65,10 +67,21 @@ impl Client {
         })
     }
 
-    pub async fn poll_for_job(&self) -> anyhow::Result<()> {
+    fn retry_prove(&self, job: ProverJob) -> ProverArtifacts {
+        loop {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                self.client_prover.prove(job.clone())
+            }));
+            match result {
+                Ok(value) => return value,
+                Err(_) => {
+                    eprintln!("Panic occurred! Retrying...")
+                }
+            }
+        }
+    }
 
-        // Record timestamp
-        let _job_request_timestamp = Instant::now();
+    pub async fn poll_for_job(&self) -> anyhow::Result<()> {
 
         // Request a job
         let circuit_ids_json = serde_json::to_value(
@@ -88,10 +101,9 @@ impl Client {
                     "Have to execute job {} with request id {}.",
                     job.job_id, job.request_id
                 );
-                let proof_artifact = self.client_prover.prove(job);
-                let _proof_submission_timestamp = Instant::now();
+                let proof_artifact = self.retry_prove(job);
 
-                // Include the different fields in the Json object: username, proof artifact
+                // Include the username together with the proof artifact in the JSON object
                 let result_json = serde_json::json!({
                     "username": self.username,
                     "proof_artifact": proof_artifact,

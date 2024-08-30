@@ -1,5 +1,11 @@
-use std::{sync::Arc, time::Instant};
-
+use std::{
+    sync::Arc,
+    time::{
+        Instant, Duration
+    },
+    io::Write,
+    fs::OpenOptions,
+};
 use anyhow::Context as _;
 use zkevm_test_harness::prover_utils::{prove_base_layer_circuit, prove_recursion_layer_circuit};
 use zksync_config::configs::FriProverConfig;
@@ -57,27 +63,50 @@ impl Prover {
         println!("Proving.");
         let started_at = Instant::now();
 
-        let proof_wrapper = match job.circuit_wrapper {
-            CircuitWrapper::Base(base_circuit) => Self::prove_base_layer(
+        let (proof_wrapper, circuit_id) = match job.circuit_wrapper {
+            CircuitWrapper::Base(base_circuit) => (Self::prove_base_layer(
                 job.job_id,
-                base_circuit,
+                base_circuit.clone(),
                 self.config.clone(),
                 setup_data,
                 job.request_id,
-            ),
-            CircuitWrapper::Recursive(recursive_circuit) => Self::prove_recursive_layer(
+            ), base_circuit.numeric_circuit_type()),
+            CircuitWrapper::Recursive(recursive_circuit) => (Self::prove_recursive_layer(
                 job.job_id,
-                recursive_circuit,
+                recursive_circuit.clone(),
                 self.config.clone(),
                 setup_data,
                 job.request_id,
-            ),
+            ), recursive_circuit.numeric_circuit_type()),
             CircuitWrapper::BasePartial(_) => panic!("Received partial base circuit"),
         };
 
-        println!("Finished proving, took: {:?}", started_at.elapsed());
+        let proving_time = started_at.elapsed();
+
+        println!("Finished proving, took: {:?}", proving_time);
+        // Write the proving time to a local file upon successful verification
+        if let Err(e) = Self::write_proving_time_to_file(proving_time, circuit_id.into(), job.job_id) {
+            eprintln!("Failed to write proving time to file: {}", e);
+        }
         ProverArtifacts::new(job.block_number, proof_wrapper, job.job_id, job.request_id)
     }
+
+    fn write_proving_time_to_file(proving_time: Duration, circuit_id: u32, job_id: u32) -> Result<(), std::io::Error> {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("proving_times.txt")?;
+        // Format the data as a comma-separated line
+        let log_entry = format!(
+            "{:?},{},{}\n",
+            proving_time,
+            circuit_id,
+            job_id,
+        );
+        file.write_all(log_entry.as_bytes())?;
+        Ok(())
+    }
+
 
     fn prove_recursive_layer(
         job_id: u32,
