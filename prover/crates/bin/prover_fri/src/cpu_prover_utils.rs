@@ -26,11 +26,21 @@ use zksync_types::{
 };
 use zksync_vk_setup_data_server_fri::{keystore::Keystore, GoldilocksProverSetupData};
 
+#[cfg(feature = "gpu")]
+use crate::gpu_prover_job_processor::gpu_prover;
 use crate::utils::{
     get_setup_data_key, load_setup_data_cache, save_proof, verify_proof, ProverArtifacts,
     SetupLoadMode,
 };
 
+#[cfg(not(feature = "gpu"))]
+pub struct Prover {
+    pub config: Arc<FriProverConfig>,
+    pub setup_load_mode: SetupLoadMode,
+    pub circuit_ids_for_round_to_be_proven: Vec<CircuitIdRoundTuple>,
+}
+
+#[cfg(feature = "gpu")]
 pub struct Prover {
     pub config: Arc<FriProverConfig>,
     pub setup_load_mode: SetupLoadMode,
@@ -39,6 +49,7 @@ pub struct Prover {
 
 impl Prover {
     #[allow(dead_code)]
+    #[cfg(not(feature = "gpu"))]
     pub fn new(
         prover_config: FriProverConfig,
         circuit_ids_for_round_to_be_proven: Vec<CircuitIdRoundTuple>,
@@ -51,6 +62,50 @@ impl Prover {
         })
     }
 
+    #[cfg(feature = "gpu")]
+    pub fn new(
+        prover_config: FriProverConfig,
+        circuit_ids_for_round_to_be_proven: Vec<CircuitIdRoundTuple>,
+    ) -> anyhow::Result<Self> {
+        Ok(Prover {
+            config: Arc::new(prover_config.clone()),
+            setup_load_mode: load_setup_data_cache(&prover_config)
+                .context("load_setup_data_cache()")?,
+            circuit_ids_for_round_to_be_proven,
+        })
+    }
+
+    #[cfg(not(feature = "gpu"))]
+    pub fn prove(&self, job: ProverJob) -> ProverArtifacts {
+        let setup_data = get_setup_data(self.setup_load_mode.clone(), job.setup_data_key.clone())
+            .context("get_setup_data()")
+            .unwrap();
+        println!("Proving.");
+        let started_at = Instant::now();
+
+        let proof_wrapper = match job.circuit_wrapper {
+            CircuitWrapper::Base(base_circuit) => Self::prove_base_layer(
+                job.job_id,
+                base_circuit,
+                self.config.clone(),
+                setup_data,
+                job.request_id,
+            ),
+            CircuitWrapper::Recursive(recursive_circuit) => Self::prove_recursive_layer(
+                job.job_id,
+                recursive_circuit,
+                self.config.clone(),
+                setup_data,
+                job.request_id,
+            ),
+            CircuitWrapper::BasePartial(_) => panic!("Received partial base circuit"),
+        };
+
+        println!("Finished proving, took: {:?}", started_at.elapsed());
+        ProverArtifacts::new(job.block_number, proof_wrapper, job.job_id, job.request_id)
+    }
+
+    #[cfg(feature = "gpu")]
     pub fn prove(&self, job: ProverJob) -> ProverArtifacts {
         let setup_data = get_setup_data(self.setup_load_mode.clone(), job.setup_data_key.clone())
             .context("get_setup_data()")

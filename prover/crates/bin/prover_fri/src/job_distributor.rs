@@ -7,6 +7,7 @@ use std::{
     },
     time::Instant,
 };
+
 use anyhow::Result;
 use clap::Parser;
 use jsonrpsee::{
@@ -14,15 +15,14 @@ use jsonrpsee::{
     types::{ErrorCode, ErrorObject},
 };
 use tokio::{
+    fs::OpenOptions,
+    io::AsyncWriteExt,
     signal,
     sync::{oneshot, RwLock},
 };
 use zksync_prover_fri::{cpu_prover_utils::JobDistributor, utils::ProverArtifacts};
 use zksync_prover_fri_types::ProverJob;
 use zksync_types::basic_fri_types::CircuitIdRoundTuple;
-
-use tokio::fs::OpenOptions;
-use tokio::io::AsyncWriteExt;
 
 const NO_JOB_AVAILABLE_ERROR_CODE: i32 = 1001;
 const NO_JOB_AVAILABLE_ERROR_MESSAGE: &str = "No job is currently available.";

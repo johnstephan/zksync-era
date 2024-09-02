@@ -1,11 +1,17 @@
 use anyhow::Context as _;
+use circuit_definitions::boojum::field::goldilocks::GoldilocksField;
 use clap::Parser;
 use jsonrpsee::{core::client::ClientT, http_client::HttpClientBuilder, rpc_params};
+#[cfg(feature = "gpu")]
+use shivini::{
+    gpu_proof_config::GpuProofConfig, gpu_prove_from_external_witness_data, ProverContext,
+};
 use tokio;
 use zksync_core_leftovers::temp_config_store::load_general_config;
 use zksync_prover_fri::cpu_prover_utils::{parse_circuit_ids_rounds, Prover};
-use zksync_prover_fri_types::ProverJob;
+use zksync_prover_fri_types::{CircuitWrapper, ProverJob, WitnessVectorArtifacts};
 use zksync_prover_fri_utils::get_all_circuit_id_round_tuples_for;
+use zksync_vk_setup_data_server_fri::keystore::Keystore;
 
 #[derive(Debug, Parser)]
 #[command(author = "Matter Labs", version)]
