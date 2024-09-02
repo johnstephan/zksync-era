@@ -45,3 +45,6 @@ export PATH="$ZKSYNC_HOME/bin:$PATH"
 
 # Init ZKsync Era
 zk
+
+# Reload current shell
+~/.zshrc

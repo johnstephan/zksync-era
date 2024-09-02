@@ -39,8 +39,6 @@ chmod +x install-mac.sh
 ./install-mac.sh
 ```
 
-When the script is done, restart the terminal to reload the zsh configuration.
-
 > **Note**: These scripts require some manual interactions. If any issues arise, refer to the step-by-step guides
 > [for Mac](./setup_instructions_mac.md) and [for Ubuntu](./setup_instructions_ubuntu.md).
 

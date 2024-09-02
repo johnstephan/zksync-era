@@ -349,7 +349,6 @@ pub fn get_setup_data(
                 .load_cpu_setup_data_for_circuit_type(key.clone())
                 .context("get_cpu_setup_data_for_circuit_type()")?;
             println!("Setup data load time, took: {:?}", started_at.elapsed());
-
             Arc::new(artifact)
         }
     })
