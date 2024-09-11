@@ -85,28 +85,11 @@ impl Prover {
 
         println!("Finished proving, took: {:?}", proving_time);
         // Write the proving time to a local file upon successful verification
-        if let Err(e) = Self::write_proving_time_to_file(proving_time, circuit_id.into(), job.job_id) {
+        if let Err(e) = write_proving_time_to_file(proving_time, circuit_id.into(), job.job_id) {
             eprintln!("Failed to write proving time to file: {}", e);
         }
         ProverArtifacts::new(job.block_number, proof_wrapper, job.job_id, job.request_id)
     }
-
-    fn write_proving_time_to_file(proving_time: Duration, circuit_id: u32, job_id: u32) -> Result<(), std::io::Error> {
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open("proving_times.txt")?;
-        // Format the data as a comma-separated line
-        let log_entry = format!(
-            "{:?},{},{}\n",
-            proving_time,
-            circuit_id,
-            job_id,
-        );
-        file.write_all(log_entry.as_bytes())?;
-        Ok(())
-    }
-
 
     fn prove_recursive_layer(
         job_id: u32,
@@ -330,6 +313,41 @@ impl JobDistributor {
         );
         Ok(())
     }
+}
+
+fn write_proving_time_to_file(proving_time: Duration, circuit_id: u32, job_id: u32) -> Result<(), std::io::Error> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("proving_times.txt")?;
+    // Format the data as a comma-separated line
+    let log_entry = format!(
+        "{:?},{},{}\n",
+        proving_time,
+        circuit_id,
+        job_id,
+    );
+    file.write_all(log_entry.as_bytes())?;
+    Ok(())
+}
+
+pub fn write_username_to_file(username: &str, job_id: u32, started_job_at: Instant) -> Result<(), std::io::Error> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("verified_provers.txt")?;
+
+    // Format the data as a comma-separated line
+    let log_entry = format!(
+        "{},{},{:?},{:?}\n",
+        username,
+        job_id,
+        started_job_at,
+        Instant::now(),
+    );
+
+    file.write_all(log_entry.as_bytes())?;
+    Ok(())
 }
 
 pub fn get_setup_data(

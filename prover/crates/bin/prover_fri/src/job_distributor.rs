@@ -11,10 +11,12 @@ use jsonrpsee::{
 use tokio::{
     signal,
     sync::{oneshot, RwLock},
-    fs::OpenOptions,
-    io::AsyncWriteExt,
 };
-use zksync_prover_fri::{cpu_prover_utils::JobDistributor, utils::ProverArtifacts};
+use zksync_prover_fri::{
+    cpu_prover_utils::{
+        JobDistributor, write_username_to_file
+    },
+    utils::ProverArtifacts};
 use zksync_prover_fri_types::ProverJob;
 use zksync_types::basic_fri_types::CircuitIdRoundTuple;
 use serde::Deserialize;
@@ -122,7 +124,6 @@ impl Server {
                         jobs.remove(&job_id);
 
                         let server_clone = server.clone();
-
                         // Respond to the client immediately
                         tokio::spawn(async move {
                             if JobDistributor::verify_client_proof(proof_artifact.clone(), job).await {
@@ -132,7 +133,7 @@ impl Server {
                                     .await;
 
                                 // Write the username to a local file upon successful verification
-                                if let Err(e) = write_username_to_file(&username, job_id).await {
+                                if let Err(e) = write_username_to_file(&username, job_id, started_job_at) {
                                     eprintln!("Failed to write username to file: {}", e);
                                 }
                             }
@@ -195,24 +196,6 @@ impl Server {
 
         Ok(())
     }
-}
-
-async fn write_username_to_file(username: &str, job_id: u32) -> Result<()> {
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("verified_provers.txt")
-        .await?;
-
-    // Format the data as a comma-separated line
-    let log_entry = format!(
-        "{},{}\n",
-        username,
-        job_id,
-    );
-
-    file.write_all(log_entry.as_bytes()).await?;
-    Ok(())
 }
 
 #[tokio::main]
