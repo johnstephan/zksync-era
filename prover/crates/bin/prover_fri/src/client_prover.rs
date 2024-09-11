@@ -9,6 +9,7 @@ use zksync_prover_fri::{
 };
 use zksync_prover_fri_types::ProverJob;
 use zksync_prover_fri_utils::get_all_circuit_id_round_tuples_for;
+use zksync_config::configs::fri_prover::SetupLoadMode;
 
 #[derive(Debug, Parser)]
 #[command(author = "Matter Labs", version)]
@@ -23,6 +24,8 @@ pub(crate) struct Cli {
     pub(crate) username: String,
     #[arg(long, default_value = "(1,0)")]
     pub(crate) circuit_ids_rounds: String,
+    #[arg(long)]  // Add the new option for batch_experiment
+    pub(crate) batch_experiment: bool,
 }
 
 struct Client {
@@ -37,6 +40,7 @@ impl Client {
         max_size: u32,
         circuit_ids_rounds: String,
         username: String,
+        batch_experiment: bool,  // Add this parameter
     ) -> anyhow::Result<Self> {
         let client = HttpClientBuilder::default()
             .max_request_size(max_size)
@@ -45,7 +49,13 @@ impl Client {
 
         let general_config =
             load_general_config(Cli::parse().config_path.clone()).context("general config")?;
-        let prover_config = general_config.prover_config.context("fri_prover config")?;
+        let mut prover_config = general_config.prover_config.context("fri_prover config")?;
+
+        // Check if batch_experiment flag is set, then modify the config
+        if batch_experiment {
+            prover_config.setup_load_mode = SetupLoadMode::FromMemory;
+            prover_config.specialized_group_id = 1;
+        }
 
         // Determine how to set circuit_ids_for_round_to_be_proven based on the input
         let circuit_ids_for_round_to_be_proven = if circuit_ids_rounds == "all" {
@@ -132,7 +142,17 @@ async fn main() -> anyhow::Result<()> {
     let max_size: u32 = 100 * 1024 * 1024;
     let circuit_ids_rounds = opt.circuit_ids_rounds;
     let username = opt.username;
-    let client = Client::new(server_url, max_size, circuit_ids_rounds, username).await?;
-    client.poll_for_job().await?;
+    let batch_experiment = opt.batch_experiment;  // Get the flag
+
+    let client = Client::new(server_url, max_size, circuit_ids_rounds, username, batch_experiment).await?;
+
+    // Loop the polling function if batch_experiment is enabled
+    if batch_experiment {
+        loop {
+            client.poll_for_job().await?;
+        }
+    } else {
+        client.poll_for_job().await?;
+    }
     Ok(())
 }
